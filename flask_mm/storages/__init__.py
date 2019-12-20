@@ -42,7 +42,7 @@ class BaseStorage(object):
         self.copy(filename, target)
         self.delete(filename)
 
-    def save(self, file_or_wfs, filename, overwrite=False):
+    def save(self, file_or_wfs, filename, **kwargs):
         self.write(filename, file_or_wfs.read())
         return filename
 
@@ -65,6 +65,9 @@ class BaseStorage(object):
             return content.encode(encoding)
         else:
             return content
+
+    def list_file(self):
+        raise NotImplementedError('list_files operation is not implemented')
 
 def as_unicode(s):
     if isinstance(s, bytes):

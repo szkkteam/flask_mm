@@ -20,6 +20,20 @@ import flask_mm as mm
 PNG_FILE = os.path.join(os.path.dirname(__file__), 'flask.png')
 JPG_FILE = os.path.join(os.path.dirname(__file__), 'flask.jpg')
 
+TEST_CONFIGS = {
+    'local' : {
+        'STORAGE': 'local',
+        'ROOT': os.path.abspath(os.path.join(os.path.dirname(__file__),'test')),
+    },
+    'file' : {
+        'MANAGER': 'file'
+    },
+    'image': {
+        'MANAGER': 'image',
+        'THUMBNAIL_SIZE': (100,100, False)
+    }
+}
+
 class TestConfig:
     TESTING = True
 
@@ -41,6 +55,46 @@ def app(init_mm):
     ctx.push()
     yield app
     ctx.pop()
+
+@pytest.fixture
+def app_manager(request, app, init_mm):
+    mark = request.param
+    if mark is not None:
+        storage = mark[0]
+        manager = mark[1]
+        try:
+            conf = mark[2]
+        except IndexError:
+            conf = {}
+
+        tmp_conf = { **TEST_CONFIGS[storage], **TEST_CONFIGS[manager] }
+        tmp_conf = { **tmp_conf, **conf }
+
+        app.Configure(
+            MEDIA_MANAGER = tmp_conf
+        )
+        init_mm.init_app(app)
+    return app
+
+class Utils(object):
+
+    def filestorage(self, filename, content, content_type=None):
+        return FileStorage(
+            self.file(content),
+            filename,
+            content_type=content_type
+        )
+    def file(self, content):
+        if isinstance(content, six.binary_type):
+            return io.BytesIO(content)
+        elif isinstance(content, six.string_types):
+            return io.BytesIO(content.encode('utf-8'))
+        else:
+            return content
+
+@pytest.fixture
+def utils():
+    return Utils()
 
 @pytest.fixture
 def binfile():

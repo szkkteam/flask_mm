@@ -59,7 +59,14 @@ def by_name(name=''):
 
 class MediaManager(object):
 
-    allowed_configs = ['URL', 'PREFIX', 'ROOT', 'MANAGER', 'STORAGE', 'EXTENSIONS']
+    allowed_configs = [
+        'URL',
+        'PREFIX',
+        'ROOT',
+        'MANAGER',
+        'STORAGE',
+        'EXTENSIONS'
+    ]
 
     key = 'mediamanager'
     name = 'media'
@@ -90,8 +97,6 @@ class MediaManager(object):
             msg = "Input argument: \'%s\' must one of %s" % (name, self.instances.keys())
             logger.error(msg)
             raise KeyError(msg)
-
-
 
     def configure(self, app):
 

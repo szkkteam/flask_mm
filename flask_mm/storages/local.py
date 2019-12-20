@@ -38,8 +38,11 @@ class LocalStorage(BaseStorage):
         super(LocalStorage, self).__init__(*args, **kwargs)
         self.base_path = root
 
+        # Optional parameters
+        self.permission = kwargs.get('permission', 0o666)
+
         if not self.exists(self.base_path):
-            pass
+            self.ensure_path(self.base_path)
             #raise IOError('LocalStorage path "%s" does not exist or is not accessible' % self.base_path)
 
     @cached_property
@@ -48,13 +51,15 @@ class LocalStorage(BaseStorage):
 
     def exists(self, filename):
         dest = self.path(filename)
+        print("Destination: ", dest)
+        print("Result: ", os.path.exists(dest))
         return os.path.exists(dest)
 
     def ensure_path(self, filename):
         dirname = os.path.dirname(self.path(filename))
         if not os.path.exists(dirname):
             try:
-                os.makedirs(dirname)
+                os.makedirs(dirname, self.permission)
             except OSError as e:
                 # Don't raise on race condition,
                 # directory has been created elsewhere
@@ -86,15 +91,18 @@ class LocalStorage(BaseStorage):
         else:
             os.remove(dest)
 
-    def save(self, file_or_wfs, filename, overwrite=False):
+    def save(self, file_or_wfs, filename, **kwargs):
         self.ensure_path(filename)
         dest = self.path(filename)
-
+        print("Type: ", type(file_or_wfs))
         if isinstance(file_or_wfs, FileStorage):
-            file_or_wfs.save(dest)
+            file_or_wfs.save(dest, **kwargs)
         else:
             with open(dest, 'wb') as out:
-                shutil.copyfileobj(file_or_wfs, out)
+                try:
+                    shutil.copyfileobj(file_or_wfs, out)
+                except AttributeError:
+                    file_or_wfs.save(out, **kwargs)
         return filename
 
     def copy(self, filename, target):

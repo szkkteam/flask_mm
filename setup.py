@@ -59,6 +59,7 @@ setup(
         ],
         'mm.managers' : [
             'file = flask_mm.managers.file:FileManager',
+            'image = flask_mm.managers.image:ImageManager',
         ]
     },
     license='MIT',

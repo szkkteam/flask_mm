@@ -10,7 +10,7 @@ import os.path
 # Internal package imports
 
 __all__ = (
-    'TEXT', 'DOCUMENTS', 'IMAGES', 'AUDIO', 'DATA', 'SCRIPTS', 'ARCHIVES', 'EXECUTABLES',
+    'TEXT', 'DOCUMENTS', 'IMAGES', 'AUDIO', 'VIDEO', 'DATA', 'SCRIPTS', 'ARCHIVES', 'EXECUTABLES',
     'DEFAULTS', 'ALL', 'NONE', 'All', 'AllExcept', 'DisallowAll'
 )
 
