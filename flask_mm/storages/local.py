@@ -57,7 +57,7 @@ class LocalStorage(BaseStorage):
         dirname = os.path.dirname(self.path(filename))
         if not os.path.exists(dirname):
             try:
-                os.makedirs(dirname, self.permission)
+                os.makedirs(dirname, self.permission | 0o111)
             except OSError as e:
                 # Don't raise on race condition,
                 # directory has been created elsewhere
