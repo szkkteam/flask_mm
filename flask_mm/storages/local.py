@@ -51,8 +51,6 @@ class LocalStorage(BaseStorage):
 
     def exists(self, filename):
         dest = self.path(filename)
-        print("Destination: ", dest)
-        print("Result: ", os.path.exists(dest))
         return os.path.exists(dest)
 
     def ensure_path(self, filename):
@@ -125,7 +123,9 @@ class LocalStorage(BaseStorage):
 
     def path(self, filename):
         '''Return the full path for a given filename in the storage'''
-        return os.path.join(self.root, filename)
+        if callable(self.base_path):
+            return os.path.join(self.base_path(), filename)
+        return os.path.join(self.base_path, filename)
 
     def serve(self, filename):
         '''Serve files for storages with direct file access'''

@@ -92,8 +92,7 @@ class TestLocalFileManager:
         st = mm.by_name()
 
         f = utils.filestorage('test.png', 'test')
-
-        filename = st.save(f, 'cicakutya.png')
+        filename = st.save(f, st.generate_name(f))
         assert st.exists(filename)
         st.delete(filename)
 
@@ -102,7 +101,7 @@ class TestLocalFileManager:
 
         f = utils.filestorage('test.png', 'test')
 
-        filename = st.save(f, generate_name=False)
+        filename = st.save(f)
         assert filename == 'test.png'
         assert st.exists(filename)
         st.delete(filename)
@@ -112,7 +111,7 @@ class TestLocalFileManager:
 
         f = utils.filestorage('test.png', 'test')
 
-        filename = st.save(f, 'cicakutya.png', generate_name=False)
+        filename = st.save(f, 'cicakutya.png')
         assert filename == 'cicakutya.png'
         assert st.exists(filename)
         st.delete(filename)

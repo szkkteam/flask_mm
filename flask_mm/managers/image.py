@@ -22,7 +22,7 @@ class ImageManager(BaseManager):
         super(ImageManager, self).__init__(name, storage, *args, **kwargs)
 
         self.max_size = kwargs.get('max_size', None)
-        self.thumbnail_size = kwargs.get('thumbnail_size', None)
+        self.thumbnail_size = kwargs.get('thumbnail_size', (200,200, True))
         allowed_extensions = kwargs.get('extensions', IMAGES)
         self.keep_image_formats = kwargs.get('keep_image_formats', ['PNG, JPG, JPEG'])
         self.image_quality = kwargs.get('image_quality', 95)
@@ -49,7 +49,10 @@ class ImageManager(BaseManager):
         thumbnail_size = kwargs.pop('thumbnail_size', self.thumbnail_size)
         create_thumbnail = kwargs.pop('create_thumbnail', True)
         quality = kwargs.pop('image_quality', self.image_quality)
+        generate_name = kwargs.pop('generate_name', True)
+        print("KWARGS: ", kwargs)
 
+        # Try to open the uploaded image file with PIL
         if file_or_wfs and isinstance(file_or_wfs, FileStorage):
             try:
                 #image = Image.open(io.BytesIO(file_or_wfs.stream.read()))
@@ -63,21 +66,37 @@ class ImageManager(BaseManager):
             except TypeError:
                 image = file_or_wfs
 
+        # Filename will be extracted from FileStorage, otherwise it has to be provided.
         if not filename:
             raise ValueError('filename is required')
 
+        # If Image max size is defined, resize the image if neccessery
         if image and size:
             image = self.resize(image, size)
 
+        # Calcualte the save format for the image
         format_filename, format = self._get_save_format(filename, image)
-        filename = super(ImageManager, self).save(self._convert(image), format_filename, format=format, quality=quality, **kwargs)
 
+        # If generate filename is requested, use the given name generator
+        if generate_name:
+            filename = self.generate_name(format_filename)
+
+        # Save the image with the specified options
+        filename = super(ImageManager, self).save(self._convert(image), filename, format=format, quality=quality, **kwargs)
+
+        # If create thumbnail is requested, generate a thumbnail and save it
         if create_thumbnail and thumbnail_size:
+            # Resize the thumbnail
             image = self.resize(image, thumbnail_size)
-            kwargs.setdefault('generate_name', False)
-            super(ImageManager, self).save(self._convert(image), self.namegen.thumbgen_filename(filename), format=format, quality=quality, **kwargs)
+            # Save the thumbnail image
+            super(ImageManager, self).save(self._convert(image), self.generate_thumbnail_name(filename), format=format, quality=quality, **kwargs)
 
         return filename
+
+    def generate_thumbnail_name(self, filename_or_wfs):
+        if isinstance(filename_or_wfs, FileStorage):
+            return self.namegen.thumbgen_filename(filename_or_wfs.filename)
+        return self.namegen.thumbgen_filename(filename_or_wfs)
 
     def _get_save_format(self, filename, image):
         if image.format not in self.keep_image_formats:

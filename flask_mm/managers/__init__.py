@@ -78,8 +78,6 @@ class BaseManager(object):
         return self.storage.delete(filename)
 
     def save(self, file_or_wfs, filename=None, **kwargs):
-        gen_name = kwargs.pop('generate_name', True)
-
         if not filename and isinstance(file_or_wfs, FileStorage):
             filename = lower_extension(secure_filename(file_or_wfs.filename))
         if not filename:
@@ -87,9 +85,6 @@ class BaseManager(object):
 
         if not self.is_allowed(filename):
             raise ValueError('File type is not allowed.')
-
-        if gen_name:
-            filename = self.generate_name(filename)
 
         self.storage.save(file_or_wfs, filename, **kwargs)
         return filename

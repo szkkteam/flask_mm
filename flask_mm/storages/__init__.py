@@ -58,6 +58,9 @@ class BaseStorage(object):
     def serve(self, filename):
         raise NotImplementedError('serve operation is not implemented')
 
+    def path(self, filename):
+        raise NotImplementedError('path operation is not implemented')
+
     def as_binary(self, content, encoding='utf8'):
         if hasattr(content, 'read'):
             return content.read()
