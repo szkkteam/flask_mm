@@ -24,7 +24,7 @@ class ImageManager(BaseManager):
         self.max_size = kwargs.get('max_size', None)
         self.thumbnail_size = kwargs.get('thumbnail_size', (200,200, True))
         allowed_extensions = kwargs.get('extensions', IMAGES)
-        self.keep_image_formats = kwargs.get('keep_image_formats', ['PNG, JPG, JPEG'])
+        self.keep_image_formats = kwargs.get('keep_image_formats', ['PNG', 'JPG', 'JPEG'])
         self.image_quality = kwargs.get('image_quality', 95)
 
         if allowed_extensions == DEFAULTS:
@@ -34,7 +34,7 @@ class ImageManager(BaseManager):
     def url_thumbnail(self, filename):
         if isinstance(filename, FileStorage):
             return filename.filename
-        return self.prefix + self.namegen.thumbgen_filename(filename)
+        return self.namegen.thumbgen_filename(filename)
 
 
     def delete(self, filename):

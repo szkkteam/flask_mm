@@ -7,7 +7,7 @@ import os
 # Pip package imports
 from six.moves.urllib.parse import urljoin
 
-from flask import url_for, request
+from flask import url_for, request, abort
 
 from werkzeug import secure_filename, FileStorage, cached_property
 
@@ -28,8 +28,7 @@ class BaseManager(object):
         # Optional parameters
         self.allowed_extensions = kwargs.get('extensions', None)
         self.namegen = kwargs.get('name_gen', UuidNameGen)
-        self._url = kwargs.get('url', '')
-        self.prefix = kwargs.get('prefix', 'media')
+        self._url = kwargs.get('url', None)
 
     def _clean_url(self, url):
         if not url.startswith('http://') and not url.startswith('https://'):
@@ -37,6 +36,26 @@ class BaseManager(object):
         if not url.endswith('/'):
             url += '/'
         return url
+
+    @property
+    def has_url(self):
+        return bool(self._url)
+
+    @property
+    def base_url(self):
+        if self.has_url:
+            return self._clean_url(self._url)
+        return url_for('mm.get_file', mm=self.name, filename='', _external=True)
+
+    def url(self, filename, external=False):
+        if isinstance(filename, FileStorage):
+            filename = filename.filename
+        if filename.startswith('/'):
+            filename = filename[1:]
+        if self.has_url:
+            return urljoin(self.base_url, filename)
+        else:
+            return url_for('mm.get_file', mm=self.name, filename=filename, _external=external)
 
     def is_file_allowed(self, filename):
         if not self.allowed_extensions:
@@ -98,7 +117,8 @@ class BaseManager(object):
         # TODO: Impelement url getter
         #metadata['url'] = self.url
 
-    def url(self, filename, external=False):
-        if isinstance(filename, FileStorage):
-            return filename.filename
-        return self.prefix + filename
+    def serve(self, filename):
+        '''Serve a file given its filename'''
+        if not self.exists(filename):
+            abort(404)
+        return self.storage.serve(filename)

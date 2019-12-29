@@ -8,7 +8,7 @@ import pkg_resources
 # Pip package imports
 from loguru import logger
 try:
-    from flask import current_app
+    from flask import current_app, Blueprint
 except ImportError as e:
     logger.error(e)
 
@@ -49,7 +49,8 @@ def _config_from_dict(app, name, config):
     return manager_class(name, storage=storage_class(**config), **config)
 
 def by_name(name=''):
-    name = name if len(current_app.extensions[MediaManager.key].keys()) > 1 else list(current_app.extensions[MediaManager.key].keys())[0]
+    if len(name) == 0 and len(current_app.extensions[MediaManager.key].keys()) == 1:
+        name = list(current_app.extensions[MediaManager.key].keys())[0]
     try:
         return current_app.extensions[MediaManager.key][name.lower()]
     except KeyError:
@@ -60,12 +61,19 @@ def by_name(name=''):
 class MediaManager(object):
 
     allowed_configs = [
+        # Common configuration values
         'URL',
-        'PREFIX',
         'ROOT',
         'MANAGER',
         'STORAGE',
-        'EXTENSIONS'
+        'EXTENSIONS',
+        # Image Manager related configuration values
+        'MAX_SIZE',
+        'THUMBNAIL_SIZE',
+        'KEEP_IMAGE_FORMATS',
+        'IMAGE_QUALITY',
+        # Local Storage related configuration values
+        'PERMISSION',
     ]
 
     key = 'mediamanager'
@@ -74,7 +82,7 @@ class MediaManager(object):
     default_storage = 'local'
     default_manager = 'file'
     default_prefix = '/media'
-    default_url = ''
+    default_url = None
 
     def __init__(self, app=None, *args, **kwargs):
         self.app = app
@@ -86,12 +94,15 @@ class MediaManager(object):
         app.extensions = getattr(app, 'extensions', {})
         app.extensions[self.key] = self.instances
 
+
     def by_name(self, name=''):
         try:
-            name = name if len(current_app.extensions[self.key].keys()) > 1 else list(current_app.extensions[self.key].keys())[0]
+            if len(name) == 0 and len(current_app.extensions[MediaManager.key].keys()) == 1:
+                name = list(current_app.extensions[MediaManager.key].keys())[0]
             return current_app.extensions[self.key][name.lower()]
         except RuntimeError:
-            name = name if len(self.instances.keys()) > 1 else list(self.instances.keys())[0]
+            if len(name) == 0 and len(self.instances.keys()) == 1:
+                name = list(self.instances.keys())[0]
             return self.instances[name.lower()]
         except KeyError:
             msg = "Input argument: \'%s\' must one of %s" % (name, self.instances.keys())
@@ -187,6 +198,9 @@ class MediaManager(object):
 
         if len(mm_instances.keys()) == 0:
             mm_instances[self.name] = _config_from_dict(app, self.name, global_config)
+
+        from .views import mm_bp
+        app.register_blueprint(mm_bp, url_prefix=global_config.get('PREFIX'))
 
         return mm_instances
 
