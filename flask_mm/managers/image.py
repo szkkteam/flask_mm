@@ -51,7 +51,6 @@ class ImageManager(BaseManager):
         create_thumbnail = kwargs.pop('create_thumbnail', True)
         quality = kwargs.pop('image_quality', self.image_quality)
         generate_name = kwargs.pop('generate_name', True)
-        print("KWARGS: ", kwargs)
 
         # Try to open the uploaded image file with PIL
         if file_or_wfs and isinstance(file_or_wfs, FileStorage):
@@ -130,14 +129,15 @@ class ImageManager(BaseManager):
 
         return image
 
-def resize_and_crop(image, width, height, crop_type='top'):
+def resize_and_crop(image, width, height, crop_type='middle'):
     # Get current and desired ratio for the images
     img_ratio = image.size[0] / float(image.size[1])
     ratio = width / float(height)
     # The image is scaled/cropped vertically or horizontally depending on the ratio
     if ratio > img_ratio:
-        img = image.resize((width, int(height * image.size[1] / image.size[0])),
-                         Image.ANTIALIAS)
+        #img = image.copy()
+        #img.thumbnail( (width, int(height * image.size[1] / image.size[0])), Image.ANTIALIAS )
+        img = image.resize((width, int(height * image.size[1] / image.size[0])), Image.ANTIALIAS)
         # Crop in the top, middle or bottom
         if crop_type == 'top':
             box = (0, 0, img.size[0], height)
@@ -149,8 +149,7 @@ def resize_and_crop(image, width, height, crop_type='top'):
             raise ValueError('ERROR: invalid value for crop_type')
         return img.crop(box)
     elif ratio < img_ratio:
-        img = image.resize((int(height * image.size[0] / image.size[1]), height),
-                         Image.ANTIALIAS)
+        img = image.resize((int(height * image.size[0] / image.size[1]), height), Image.ANTIALIAS)
         # Crop in the top, middle or bottom
         if crop_type == 'top':
             box = (0, 0, width, img.size[1])
