@@ -7,5 +7,5 @@ from __future__ import unicode_literals
 # Pip package imports
 # Internal package imports
 
-__version__ = '0.0.4.dev'
+__version__ = '0.0.5.dev'
 __description__ = 'Media Manager for flask'

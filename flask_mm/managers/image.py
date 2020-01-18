@@ -26,6 +26,7 @@ class ImageManager(BaseManager):
         allowed_extensions = kwargs.get('extensions', IMAGES)
         self.keep_image_formats = kwargs.get('keep_image_formats', ['PNG', 'JPG', 'JPEG'])
         self.image_quality = kwargs.get('image_quality', 95)
+        self.crop_type = kwargs.get('crop_type', 'TOP')
 
         if allowed_extensions == DEFAULTS:
             allowed_extensions = IMAGES
@@ -121,7 +122,7 @@ class ImageManager(BaseManager):
         if image.size[0] > width or image.size[1] > height:
             if force:
                 #return ImageOps.fit(image, (width, height), Image.ANTIALIAS)
-                return image.resize((width, height), Image.ANTIALIAS)
+                return resize_and_crop(image, width, height, self.crop_type.lower())
             else:
                 thumb = image.copy()
                 thumb.thumbnail((width, height), Image.ANTIALIAS)
@@ -129,5 +130,37 @@ class ImageManager(BaseManager):
 
         return image
 
-
-
+def resize_and_crop(image, width, height, crop_type='top'):
+    # Get current and desired ratio for the images
+    img_ratio = image.size[0] / float(image.size[1])
+    ratio = width / float(height)
+    # The image is scaled/cropped vertically or horizontally depending on the ratio
+    if ratio > img_ratio:
+        img = image.resize((width, height * image.size[1] / image.size[0]),
+                         Image.ANTIALIAS)
+        # Crop in the top, middle or bottom
+        if crop_type == 'top':
+            box = (0, 0, img.size[0], height)
+        elif crop_type == 'middle':
+            box = (0, (img.size[1] - height) / 2, img.size[0], (img.size[1] + height) / 2)
+        elif crop_type == 'bottom':
+            box = (0, img.size[1] - height, img.size[0], img.size[1])
+        else:
+            raise ValueError('ERROR: invalid value for crop_type')
+        return img.crop(box)
+    elif ratio < img_ratio:
+        img = image.resize((height * image.size[0] / image.size[1], height),
+                         Image.ANTIALIAS)
+        # Crop in the top, middle or bottom
+        if crop_type == 'top':
+            box = (0, 0, width, img.size[1])
+        elif crop_type == 'middle':
+            box = ((img.size[0] - width) / 2, 0, (img.size[0] + width) / 2, img.size[1])
+        elif crop_type == 'bottom':
+            box = (img.size[0] - width, 0, img.size[0], img.size[1])
+        else:
+            raise ValueError('ERROR: invalid value for crop_type')
+        return img.crop(box)
+    else:
+        return image.resize((width, height),
+                         Image.ANTIALIAS)
