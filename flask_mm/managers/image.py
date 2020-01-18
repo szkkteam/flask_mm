@@ -136,7 +136,7 @@ def resize_and_crop(image, width, height, crop_type='top'):
     ratio = width / float(height)
     # The image is scaled/cropped vertically or horizontally depending on the ratio
     if ratio > img_ratio:
-        img = image.resize((width, height * image.size[1] / image.size[0]),
+        img = image.resize((width, int(height * image.size[1] / image.size[0])),
                          Image.ANTIALIAS)
         # Crop in the top, middle or bottom
         if crop_type == 'top':
@@ -149,7 +149,7 @@ def resize_and_crop(image, width, height, crop_type='top'):
             raise ValueError('ERROR: invalid value for crop_type')
         return img.crop(box)
     elif ratio < img_ratio:
-        img = image.resize((height * image.size[0] / image.size[1], height),
+        img = image.resize((int(height * image.size[0] / image.size[1]), height),
                          Image.ANTIALIAS)
         # Crop in the top, middle or bottom
         if crop_type == 'top':
