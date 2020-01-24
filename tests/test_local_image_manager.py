@@ -15,7 +15,10 @@ import pytest
 # Internal package imports
 import flask_mm as mm
 
-@pytest.mark.parametrize("app_manager", [('local', 'image', { 'THUMBNAIL_SIZE': (253,220,True) })], indirect=True)
+THUMB_WIDTH = 253
+THUMB_HEIGHT = 220
+
+@pytest.mark.parametrize("app_manager", [('local', 'image', { 'THUMBNAIL_SIZE': (THUMB_WIDTH,THUMB_HEIGHT,True) })], indirect=True)
 class TestLocalImageManagerThumbnailForced:
 
     #@pytest.mark.parametrize("image", [("tests/snow_terrain1.jpg"), ("tests/horse1.jpg"), ("tests/mogyi2.jpg")])
@@ -40,10 +43,8 @@ class TestLocalImageManagerThumbnailForced:
         filename = st.save(f, 'test.jpg')
         assert st.exists(st.generate_thumbnail_name(filename))
         thumb = Image.open(os.path.join('tests', 'test', st.generate_thumbnail_name(filename)))
-        assert thumb.size[0] == 285
-        assert thumb.size[1] == 200
-
-        assert False
+        assert thumb.size[0] == THUMB_WIDTH
+        assert thumb.size[1] == THUMB_HEIGHT
 
         st.delete(filename)
 

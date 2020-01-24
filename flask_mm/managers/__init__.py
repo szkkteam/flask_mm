@@ -72,6 +72,9 @@ class BaseManager(object):
             raise RuntimeError("Direct file access is not supported by " + self.storage.__class__.__name__)
         return self.storage.path(filename)
 
+    def archive_files(self, out_filename, files, *args, **kwargs):
+        return self.storage.archive_files(out_filename, files, *args, **kwargs)
+
     def exists(self, filename):
         return self.storage.exists(filename)
 

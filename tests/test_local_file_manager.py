@@ -116,3 +116,36 @@ class TestLocalFileManager:
         assert st.exists(filename)
         st.delete(filename)
 
+    def test_compress_files_file(self, app_manager, utils):
+        st = mm.by_name()
+
+        f1 = utils.file(b'test')
+        f2 = utils.file(b'test')
+
+        filename1 = st.save(f1, 'test1.png')
+        filename2 = st.save(f2, 'test2.png')
+
+        archive = st.archive_files(st.generate_name('compressed.zip'), [filename1, filename2])
+
+        assert st.exists(archive)
+
+        st.delete(filename1)
+        st.delete(filename2)
+        st.delete(archive)
+
+    def test_compress_files_filestorage(self, app_manager, utils):
+        st = mm.by_name()
+
+        f1 = utils.filestorage('test.png', 'test')
+        f2 = utils.filestorage('test.png', 'test')
+
+        filename1 = st.save(f1, st.generate_name(f1))
+        filename2 = st.save(f2, st.generate_name(f2))
+
+        archive = st.archive_files(st.generate_name('compressed.zip'), [filename1, filename2])
+
+        assert st.exists(archive)
+
+        st.delete(filename1)
+        st.delete(filename2)
+        st.delete(archive)

@@ -5,6 +5,8 @@
 from __future__ import unicode_literals
 
 import six
+import zipfile
+import zlib
 # Pip package imports
 
 # Internal package imports
@@ -51,6 +53,15 @@ class BaseStorage(object):
         # Fix backend mime misdetection
         meta['mime'] = meta.get('mime') or files.mime(filename, self.DEFAULT_MIME)
         return meta
+
+    def archive_files(self, out_filename, filenames, *args, **kwargs):
+        if not (isinstance(filenames, list) or isinstance(filenames, tuple)):
+            filenames = [filenames]
+        with zipfile.ZipFile(self.path(out_filename), 'w', zipfile.ZIP_DEFLATED) as zipper:
+            for filename in filenames:
+                zipper.write(self.path(filename), filename)
+
+        return out_filename
 
     def get_metadata(self, filename):
         raise NotImplementedError('Copy operation is not implemented')
