@@ -20,7 +20,7 @@ from flask_mm.postprocess import Postprocess
 class ImageManager(BaseManager):
 
     def __init__(self, app, name, storage, *args, **kwargs):
-        super(ImageManager, self).__init__(name, storage, *args, **kwargs)
+        super(ImageManager, self).__init__(app, name, storage, *args, **kwargs)
 
         self.max_size = kwargs.get('max_size', None)
         self.thumbnail_size = kwargs.get('thumbnail_size', (200,200, True))
@@ -43,7 +43,7 @@ class ImageManager(BaseManager):
 
     def delete(self, filename):
         super(ImageManager, self).delete(filename)
-        self.delete_thumbnal(filename)
+        self.delete_thumbnail(filename)
 
     def get_thumbnail(self, filename):
         return self.namegen.thumbgen_filename(filename)
@@ -61,7 +61,6 @@ class ImageManager(BaseManager):
         # TODO: Implement preprocess
         preprocess = kwargs.pop('preprocess', self.preprocess)
         postprocess = kwargs.pop('postprocess', self.postprocess)
-        assert isinstance(postprocess, Postprocess), "Postprocess must be a subclass of flask_mm.postrocess.Postprocess"
 
         # Try to open the uploaded image file with PIL
         if file_or_wfs and isinstance(file_or_wfs, FileStorage):
@@ -87,6 +86,7 @@ class ImageManager(BaseManager):
 
         # Calcualte the save format for the image
         format_filename, format = self._get_save_format(filename, image)
+        print("Format: ", format)
 
         # If generate filename is requested, use the given name generator
         if generate_name:
@@ -97,16 +97,18 @@ class ImageManager(BaseManager):
         # If create thumbnail is requested, generate a thumbnail and save it
         if create_thumbnail and thumbnail_size:
             # Resize the thumbnail
-            image = self.resize(image, thumbnail_size)
+            image_thumb = self.resize(image, thumbnail_size)
             # Save the thumbnail image
-            super(ImageManager, self).save(self._convert(image), self.generate_thumbnail_name(filename),
+            super(ImageManager, self).save(self._convert(image_thumb, format), self.generate_thumbnail_name(filename),
                                            format=format, quality=quality, **kwargs)
         # Perform the postprocess if defined
         if postprocess:
+            assert isinstance(postprocess,
+                              Postprocess), "Postprocess must be a subclass of flask_mm.postrocess.Postprocess"
             image = postprocess.process(image)
 
         # Save the image with the specified options
-        filename = super(ImageManager, self).save(self._convert(image), filename, format=format, quality=quality, **kwargs)
+        filename = super(ImageManager, self).save(self._convert(image, format), filename, format=format, quality=quality, **kwargs)
 
         return filename
 
@@ -122,9 +124,15 @@ class ImageManager(BaseManager):
             return filename, "JPEG"
         return filename, image.format
 
-    def _convert(self, image):
+    def _convert(self, image, format):
         if image.mode not in ("RGB", "RGBA"):
-            return image.convert("RGBA")
+            image =  image.convert("RGBA")
+
+        if image.mode == "RGBA" and format in ['JPG', 'JPEG']:
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image, mask=image.split()[-1])  # 3 is the alpha channel
+            return background
+
         return image
 
     def resize(self, image, size):

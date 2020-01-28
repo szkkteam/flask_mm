@@ -10,6 +10,6 @@ from . import BaseManager
 
 class FileManager(BaseManager):
 
-    def __init__(self, name, storage, *args, **kwargs):
-        super(FileManager, self).__init__(name, storage, *args, **kwargs)
+    def __init__(self, app, name, storage, *args, **kwargs):
+        super(FileManager, self).__init__(app, name, storage, *args, **kwargs)
 

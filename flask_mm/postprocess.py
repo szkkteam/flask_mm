@@ -16,23 +16,16 @@ class Postprocess(object):
 
 class Watermarker(Postprocess):
 
-    DEFAULT_POSITION = None
-    DEFAULT_OPACITY = 0.5
-    DEFAULT_TILE = False
-    DEFAULT_SCALE = 1.0
-    DEFAULT_GREYSCALE = False
-    DEFAULT_ROTATION = 0
-    DEFAULT_QUALITY = 0.85
+    WATERMARK_PERCENTAGE = 30
 
     def __init__(self,
                  watermark_image,
-                 position=Watermarker.DEFAULT_POSITION,
-                 opacity=Watermarker.DEFAULT_OPACITY,
-                 tile=Watermarker.DEFAULT_TILE,
-                 scale=Watermarker.DEFAULT_SCALE,
-                 greyscale=Watermarker.DEFAULT_GREYSCALE,
-                 rotation=Watermarker.DEFAULT_ROTATION,
-                 quality=Watermarker.DEFAULT_QUALITY):
+                 position=None,
+                 opacity=0.5,
+                 tile=False,
+                 scale=1.0,
+                 greyscale=False,
+                 rotation=0):
 
         self.watermark_image = watermark_image
         self.position = position
@@ -41,12 +34,11 @@ class Watermarker(Postprocess):
         self.scale = scale
         self.greyscale = greyscale
         self.rotation = rotation
-        self.quality = quality
 
     def process(self, target, **kwargs):
-        if not isinstance(target, Image):
+        if not isinstance(target, Image.Image):
             target = Image.open(target)
-        if not isinstance(self.watermark_image, Image):
+        if not isinstance(self.watermark_image, Image.Image):
             self.watermark_image = Image.open(self.watermark_image)
 
         # determine the actual value that the parameters provided will render
@@ -73,8 +65,8 @@ class Watermarker(Postprocess):
             new_mark = Image.new('RGBA', (new_w, new_h), (0,0,0,0))
 
             # center the watermark in the newly resized image
-            new_l = int((new_w - mark.size[0]) / 2)
-            new_t = int((new_h - mark.size[1]) / 2)
+            new_l = int((new_w - watermark_image.size[0]) / 2)
+            new_t = int((new_h - watermark_image.size[1]) / 2)
             new_mark.paste(watermark_image, (new_l, new_t))
 
             watermark_image = new_mark.rotate(rotation)
@@ -83,7 +75,7 @@ class Watermarker(Postprocess):
             target = target.convert('RGBA')
 
         layer = Image.new('RGBA', target.size, (0, 0, 0, 0))
-        if tile:
+        if self.tile:
             first_y = int(position[1] % watermark_image.size[1] - watermark_image.size[1])
             first_x = int(position[0] % watermark_image.size[0] - watermark_image.size[0])
 
@@ -95,6 +87,37 @@ class Watermarker(Postprocess):
 
         # composite the watermark with the layer
         return Image.composite(layer, target, layer)
+
+def _percent(var):
+    """
+    Just a simple interface to the _val function with a more meaningful name.
+    """
+    return _val(var, True)
+
+
+def _int(var):
+    """
+    Just a simple interface to the _val function with a more meaningful name.
+    """
+    return _val(var)
+
+
+def _val(var, is_percent=False):
+    """
+    Tries to determine the appropriate value of a particular variable that is
+    passed in.  If the value is supposed to be a percentage, a whole integer
+    will be sought after and then turned into a floating point number between
+    0 and 1.  If the value is supposed to be an integer, the variable is cast
+    into an integer.
+    """
+    try:
+        if is_percent:
+            var = float(int(var.strip('%')) / 100.0)
+        else:
+            var = int(var)
+    except ValueError:
+        raise ValueError('invalid watermark parameter: ' + var)
+    return var
 
 def reduce_opacity(img, opacity):
     """
@@ -138,7 +161,7 @@ def determine_scale(scale, img, mark):
             scale = min(
                 float(img.size[0]) / mark.size[0],
                 float(img.size[1]) / mark.size[1]
-            ) / 100 * settings.WATERMARK_PERCENTAGE
+            ) / 100 * Watermarker.WATERMARK_PERCENTAGE
         elif type(scale) not in (float, int):
             raise ValueError('Invalid scale value "%s"! Valid values are "F" '
                              'for ratio-preserving scaling, "R%%" for percantage aspect '
@@ -158,12 +181,8 @@ def determine_rotation(rotation, mark):
     """
     Determines the number of degrees to rotate the watermark image.
     """
-    if isinstance(rotation, six.string_types) and rotation.lower() == 'r':
-        rotation = random.randint(0, 359)
-    else:
-        rotation = _int(rotation)
+    return _int(rotation)
 
-    return rotation
 
 def determine_position(position, img, mark):
     """

@@ -14,11 +14,12 @@ from flask import url_for
 import pytest
 # Internal package imports
 import flask_mm as mm
+from flask_mm.postprocess import Watermarker
 
 THUMB_WIDTH = 253
 THUMB_HEIGHT = 220
 
-POSTPROCESS_PARAMS = mm.postprocess.Watermark("tests/flask.jpg")
+POSTPROCESS_PARAMS = Watermarker("tests/flask.png", opacity=0.08, scale=0.2, position="c")
 
 @pytest.mark.parametrize("app_manager", [('local', 'image', { 'POSTPROCESS': POSTPROCESS_PARAMS })], indirect=True)
 class TestLocalImageManagerPostprocessWatermark:
@@ -27,7 +28,7 @@ class TestLocalImageManagerPostprocessWatermark:
         st = mm.by_name()
 
         with open(image, 'rb') as fp:
-            f = utils.filestorage('flask.jpg', fp)
+            f = utils.filestorage('horse.jpg', fp)
             filename = st.save(f)
             assert st.exists(filename)
             st.delete(filename)

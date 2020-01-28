@@ -55,7 +55,7 @@ class BaseStorage(object):
         return meta
 
     def archive_files(self, out_filename, filenames, *args, **kwargs):
-        if not (isinstance(filenames, list) or isinstance(filenames, tuple)):
+        if not isinstance(filenames, (tuple, list)):
             filenames = [filenames]
         with zipfile.ZipFile(self.path(out_filename), 'w', zipfile.ZIP_DEFLATED) as zipper:
             for filename in filenames:
