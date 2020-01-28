@@ -46,7 +46,7 @@ def _config_from_dict(app, name, config):
 
     config = {k.lower(): v for k, v in config.items()}
 
-    return manager_class(name, storage=storage_class(**config), **config)
+    return manager_class(app, name, storage=storage_class(**config), **config)
 
 def by_name(name=''):
     if len(name) == 0 and len(current_app.extensions[MediaManager.key].keys()) == 1:
@@ -72,6 +72,9 @@ class MediaManager(object):
         'THUMBNAIL_SIZE',
         'KEEP_IMAGE_FORMATS',
         'IMAGE_QUALITY',
+        'CROP_TYPE'
+        'PREPROCESS',
+        'POSTPROCESS',
         # Local Storage related configuration values
         'PERMISSION',
     ]

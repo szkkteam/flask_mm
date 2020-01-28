@@ -15,18 +15,21 @@ from PIL import Image, ImageOps
 from . import BaseManager
 from flask_mm.files import IMAGES, DEFAULTS
 from flask_mm.files import lower_extension, extension
+from flask_mm.postprocess import Postprocess
 
 class ImageManager(BaseManager):
 
-    def __init__(self, name, storage, *args, **kwargs):
+    def __init__(self, app, name, storage, *args, **kwargs):
         super(ImageManager, self).__init__(name, storage, *args, **kwargs)
 
         self.max_size = kwargs.get('max_size', None)
         self.thumbnail_size = kwargs.get('thumbnail_size', (200,200, True))
         allowed_extensions = kwargs.get('extensions', IMAGES)
         self.keep_image_formats = kwargs.get('keep_image_formats', ['PNG', 'JPG', 'JPEG'])
-        self.image_quality = kwargs.get('image_quality', 95)
+        self.image_quality = kwargs.get('image_quality', 90)
         self.crop_type = kwargs.get('crop_type', 'TOP')
+        self.preprocess = kwargs.pop('preprocess', None)
+        self.postprocess = kwargs.pop('postprocess', None)
 
         if allowed_extensions == DEFAULTS:
             allowed_extensions = IMAGES
@@ -42,15 +45,23 @@ class ImageManager(BaseManager):
         super(ImageManager, self).delete(filename)
         self.delete_thumbnal(filename)
 
-    def delete_thumbnal(self, filename):
+    def get_thumbnail(self, filename):
+        return self.namegen.thumbgen_filename(filename)
+
+    def delete_thumbnail(self, filename):
         self.storage.delete(self.namegen.thumbgen_filename(filename))
 
     def save(self, file_or_wfs, filename=None, **kwargs):
-        size = kwargs.pop('size', None)
+        size = kwargs.pop('size', self.max_size)
         thumbnail_size = kwargs.pop('thumbnail_size', self.thumbnail_size)
         create_thumbnail = kwargs.pop('create_thumbnail', True)
         quality = kwargs.pop('image_quality', self.image_quality)
         generate_name = kwargs.pop('generate_name', True)
+
+        # TODO: Implement preprocess
+        preprocess = kwargs.pop('preprocess', self.preprocess)
+        postprocess = kwargs.pop('postprocess', self.postprocess)
+        assert isinstance(postprocess, Postprocess), "Postprocess must be a subclass of flask_mm.postrocess.Postprocess"
 
         # Try to open the uploaded image file with PIL
         if file_or_wfs and isinstance(file_or_wfs, FileStorage):
@@ -81,15 +92,21 @@ class ImageManager(BaseManager):
         if generate_name:
             filename = self.generate_name(format_filename)
 
-        # Save the image with the specified options
-        filename = super(ImageManager, self).save(self._convert(image), filename, format=format, quality=quality, **kwargs)
+        # TODO: Implement preprocessing of the image
 
         # If create thumbnail is requested, generate a thumbnail and save it
         if create_thumbnail and thumbnail_size:
             # Resize the thumbnail
             image = self.resize(image, thumbnail_size)
             # Save the thumbnail image
-            super(ImageManager, self).save(self._convert(image), self.generate_thumbnail_name(filename), format=format, quality=quality, **kwargs)
+            super(ImageManager, self).save(self._convert(image), self.generate_thumbnail_name(filename),
+                                           format=format, quality=quality, **kwargs)
+        # Perform the postprocess if defined
+        if postprocess:
+            image = postprocess.process(image)
+
+        # Save the image with the specified options
+        filename = super(ImageManager, self).save(self._convert(image), filename, format=format, quality=quality, **kwargs)
 
         return filename
 

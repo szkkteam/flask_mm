@@ -20,7 +20,7 @@ DEFAULT_MANAGER = 'file'
 
 class BaseManager(object):
 
-    def __init__(self, name, storage, *args, **kwargs):
+    def __init__(self, app, name, storage, *args, **kwargs):
         self.name = name
         assert isinstance(storage, BaseStorage), "Storage object must be a subclass of BaseStorage"
         self.storage = storage

@@ -18,6 +18,34 @@ import flask_mm as mm
 THUMB_WIDTH = 253
 THUMB_HEIGHT = 220
 
+POSTPROCESS_PARAMS = mm.postprocess.Watermark("tests/flask.jpg")
+
+@pytest.mark.parametrize("app_manager", [('local', 'image', { 'POSTPROCESS': POSTPROCESS_PARAMS })], indirect=True)
+class TestLocalImageManagerPostprocessWatermark:
+    @pytest.mark.parametrize("image", [("tests/flask.jpg"), ("tests/flask.png")])
+    def test_basic_postprocess_watermark(self, app_manager, image, utils):
+        st = mm.by_name()
+
+        with open(image, 'rb') as fp:
+            f = utils.filestorage('flask.jpg', fp)
+            filename = st.save(f)
+            assert st.exists(filename)
+            st.delete(filename)
+
+@pytest.mark.parametrize("app_manager", [('local', 'image', {})], indirect=True)
+class TestLocalImageManagerPostprocess:
+    @pytest.mark.parametrize("image", [("tests/flask.jpg"), ("tests/flask.png")])
+    def test_basic_watermark(self, app_manager, image, utils):
+
+        st = mm.by_name()
+
+        with open(image, 'rb') as fp:
+            f = utils.filestorage('flask.jpg', fp)
+            filename = st.save(f, postprocess=POSTPROCESS_PARAMS)
+            assert st.exists(filename)
+            st.delete(filename)
+
+
 @pytest.mark.parametrize("app_manager", [('local', 'image', { 'THUMBNAIL_SIZE': (THUMB_WIDTH,THUMB_HEIGHT,True) })], indirect=True)
 class TestLocalImageManagerThumbnailForced:
 

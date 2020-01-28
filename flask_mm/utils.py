@@ -17,6 +17,7 @@ class UuidNameGen(object):
     uuid_type = uuid.uuid1
     separator = "_sep_"
     thumb_name = "_thumb"
+    wm_name ="_wm"
 
     @classmethod
     def generate_name(cls, filename):
@@ -53,3 +54,8 @@ class UuidNameGen(object):
     def thumbgen_filename(cls, filename):
         name, ext = op.splitext(filename)
         return name + cls.thumb_name + ext
+
+    @classmethod
+    def watermark_filename(cls, filename):
+        name, ext = op.splitext(filename)
+        return name + cls.wm_name + ext
