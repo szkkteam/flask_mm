@@ -6,11 +6,9 @@ from os.path import join
 import pkg_resources
 
 # Pip package imports
-from loguru import logger
-try:
-    from flask import current_app, Blueprint
-except ImportError as e:
-    logger.error(e)
+from flask import current_app, Blueprint
+
+
 
 # Internal package imports
 from .__about__ import __version__, __description__  # noqa: Facade pattern
@@ -55,7 +53,6 @@ def by_name(name=''):
         return current_app.extensions[MediaManager.key][name.lower()]
     except KeyError:
         msg = "Input argument: %s must one of %s" % (name, current_app.extensions[MediaManager.key].keys())
-        logger.error(msg)
         raise KeyError(msg)
 
 class MediaManager(object):
@@ -109,7 +106,6 @@ class MediaManager(object):
             return self.instances[name.lower()]
         except KeyError:
             msg = "Input argument: \'%s\' must one of %s" % (name, self.instances.keys())
-            logger.error(msg)
             raise KeyError(msg)
 
     def configure(self, app):
