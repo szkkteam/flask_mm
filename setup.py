@@ -9,7 +9,6 @@ from os.path import join, dirname
 
 # Pip package imports
 from setuptools import setup, find_packages
-from pip.req import parse_requirements
 
 # Internal package imports
 
@@ -35,7 +34,7 @@ long_description = '\n'.join((
 ))
 
 
-install_requires = [str(ir.req) for ir in parse_requirements('requirements.txt')]
+install_requires = read_requirements('requirements.txt')
 dev_requires = read_requirements('requirements-dev.txt')
 
 setup(
@@ -48,7 +47,10 @@ setup(
     author_email='szkkteam1@gmail.com',
     packages=find_packages(),
     include_package_data=True,
-    install_requires=install_requires,
+    install_requires=[
+        'Pillow',
+        'Flask'
+    ],
     tests_require=dev_requires,
     entry_points={
         'mm.storages': [
