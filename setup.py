@@ -47,7 +47,10 @@ setup(
     author_email='szkkteam1@gmail.com',
     packages=find_packages(),
     include_package_data=True,
-    install_requires=install_requires,
+    install_requires=[
+        'Pillow',
+        'Flask'
+    ],
     tests_require=dev_requires,
     entry_points={
         'mm.storages': [
