@@ -8,16 +8,11 @@ import os
 import mimetypes
 import io
 import zipfile
-from datetime import datetime
+import codecs
 
 # Pip package imports
-try:
-    from boto import s3
-    from boto.s3.prefix import Prefix
-    from boto.s3.key import Key
-except ImportError:
-    s3 = None
-
+import boto3
+from botocore.exceptions import ClientError
 from flask import send_from_directory
 
 from werkzeug import cached_property
@@ -33,27 +28,28 @@ class S3Storage(BaseStorage):
     def __init__(self, bucket_name, aws_region, aws_access_key, aws_secret_access_key, *args, **kwargs):
         super(S3Storage, self).__init__(*args, **kwargs)
 
+        self.session = boto3.session.Session()
+        self.s3config = boto3.session.Config(signature_version='s3v4')
         # Optional parameters
         self.base_path = kwargs.get('root')
         self.policy = kwargs.get('policy')
 
-        if not s3:
-            raise ValueError('Could not import boto. You can install boto by '
-                             'using pip install boto')
+        self.s3 = self.session.resource('s3',
+                                        config=self.s3config,
+                                        #endpoint_url='', #TODO: Get url
+                                        region_name=aws_region,
+                                        aws_access_key_id=aws_access_key,
+                                        aws_secret_access_key=aws_secret_access_key)
 
-        connection = s3.connect_to_region(
-            aws_region,
-            aws_access_key_id=aws_access_key,
-            aws_secret_access_key=aws_secret_access_key,
-        )
         # TODO: Get config if can create bucket, create if can
-        self._bucket = connection.get_bucket(bucket_name)
+        self.bucket = self.s3.Bucket(bucket_name)
+        try:
+            self.bucket.create()
+        except (self.s3.meta.client.exceptions.BucketAlreadyOwnedByYou, ClientError):
+            pass
+
         self.separator = '/'
         self.base_path = kwargs.get('root')
-
-    @cached_property
-    def bucket(self):
-        return self._bucket
 
     @cached_property
     def root(self):
@@ -84,57 +80,56 @@ class S3Storage(BaseStorage):
         return {key.name for key in self.bucket.list(search, self.separator)}
 
     def exists(self, filename):
-        if filename == '':
-            return True
-        keys = self._get_path_keys(filename)
-        return filename in keys or (filename + self.separator) in keys
-
-    def ensure_path(self, filename):
-        # TOOD: Maybe remove this function?
-        key = Key(self.bucket, filename)
-        key.set_contents_from_string('')
+        try:
+            self.bucket.Object(filename).load()
+        except ClientError:
+            return False
+        return True
 
     @contextmanager
     def open(self, filename, mode='r', encoding='utf8'):
-        full_filename = self.path(filename)
-        if mode == 'w':
-            # TODO: Overwrite file
-            pass
-        if mode == 'b':
-            # TODO: What to do here?
-            pass
-        else:
-            k = self.bucket.get_key(full_filename)
-            if not k:
-                raise FileNotFoundError('File does not exist: {0}'.format(filename))
-            return io.BytesIO(k.read())
+        obj = self.bucket.Object(filename)
+        if 'r' in mode:
+            f = obj.get()['Body']
+            yield f if 'b' in mode else codecs.getreader(encoding)(f)
+        else:  # mode == 'w'
+            f = io.BytesIO() if 'b' in mode else io.StringIO()
+            yield f
+            obj.put(Body=f.getvalue())
 
     def read(self, filename):
-        filename = self.path(filename)
-        k = self.bucket.get_key(filename)
-        if not k:
-            return None
-        return k.read()
+        obj = self.bucket.Object(filename).get()
+        return obj['Body'].read()
 
     def write(self, filename, content):
-        key = self._generate_key(self.path(filename))
-        return key.set_contents_from_string(content, policy=self.policy)
-        pass
+        return self.bucket.put_object(Key=filename, Body=self.as_binary(content))
 
     def delete(self, filename):
-        filename = self.path(filename)
-        self.bucket.delete_key(filename)
+        for obj in self.bucket.objects.filter(Prefix=filename):
+            obj.delete()
 
     def save(self, file_or_wfs, filename, **kwargs):
-        headers = kwargs.get('header')
-        dest = self.path(filename)
-        key = self._generate_key(dest)
         if isinstance(file_or_wfs, FileStorage):
-            key.set_contents_from_stream(
-                file_or_wfs.stream, headers=headers, policy=self.policy)
+            self.bucket.put_object(
+                Body=file_or_wfs,
+                Key=filename if filename else file_or_wfs.filename,
+                # ContentType=?? TODO: How to get the content type?
+            )
         else:
-            with open(dest, 'wb') as out:
-                key.set_contents_from_file(out)
+            if isinstance(file_or_wfs, io.BytesIO):
+                file_or_wfs.seek(0)
+                self.bucket.put_object(
+                    Body=file_or_wfs,
+                    Key=filename,
+                    # ContentType=?? TODO: How to get the content type?
+                )
+            else:
+                with open(filename, 'wb') as out:
+                    self.bucket.put_object(
+                        Body=self.as_binary(out),
+                        Key=filename,
+                        # ContentType=?? TODO: How to get the content type?
+                    )
         return filename
 
     def archive_files(self, out_filename, filenames, *args, **kwargs):
@@ -144,26 +139,32 @@ class S3Storage(BaseStorage):
         zf = zipfile.ZipFile(io.BytesIO(), 'w', zipfile.ZIP_DEFLATED)
         try:
             for filename in filenames:
-                zf.write(self.read(filename))
-            self.write(out_filename, zf.read())
+                print("Filename: ", filename)
+                d = self.read(filename)
+                print("Data: ", d)
+                zf.writestr(filename, d)
+            self.write(out_filename, zf)
         except Exception as e:
-            print(e)
+            print("Error occured: ", e)
         finally:
             zf.close()
 
         return out_filename
 
     def copy(self, filename, target):
-        # TODO: Implement copy
-        raise NotImplementedError('Copy operation is not implemented')
+        src = {
+            'Bucket': self.bucket.name,
+            'Key': filename,
+        }
+        self.bucket.copy(src, target)
 
     def move(self, filename, target):
         # TODO: Implement move. Does it make sense? This storage handle only 1 bucket
         raise NotImplementedError('Move operation is not implemented')
 
     def list_files(self):
-        for file in self.bucket.objects.all():
-            yield file
+        for f in self.bucket.objects.all():
+            yield f.key
 
     def path(self, filename):
         '''Return the full path for a given filename in the storage'''
@@ -179,5 +180,13 @@ class S3Storage(BaseStorage):
         return key.generate_url(3600)
 
     def get_metadata(self, filename):
-        '''Fetch all available metadata'''
-        pass
+        '''Fetch all availabe metadata'''
+        obj = self.bucket.Object(filename)
+        checksum = 'md5:{0}'.format(obj.e_tag[1:-1])
+        mime = obj.content_type.split(';', 1)[0] if obj.content_type else None
+        return {
+            'checksum': checksum,
+            'size': obj.content_length,
+            'mime': mime,
+            'modified': obj.last_modified,
+        }
