@@ -55,7 +55,7 @@ setup(
     entry_points={
         'mm.storages': [
             'local = flask_mm.storages.local:LocalStorage',
-            #'s3 = flask_fs.backends.s3:S3Backend [s3]',
+            's3 = flask_mm.storages.s3:S3Storage',
             #'gridfs = flask_fs.backends.gridfs:GridFsBackend [gridfs]',
             #'swift = flask_fs.backends.swift:SwiftBackend [swift]',
             #'mock = flask_fs.backends.mock:MockBackend',

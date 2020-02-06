@@ -74,6 +74,11 @@ class MediaManager(object):
         'POSTPROCESS',
         # Local Storage related configuration values
         'PERMISSION',
+        # Amazon S3 Storage related configuration values
+        'AWS_ACCESS_KEY',
+        'AWS_SECRET_ACCESS_KEY',
+        'AWS_REGION',
+        'BUCKET_NAME',
     ]
 
     key = 'mediamanager'

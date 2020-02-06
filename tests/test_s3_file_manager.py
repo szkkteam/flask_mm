@@ -20,6 +20,7 @@ class TestGetByName:
         init_mm.init_app(app)
         assert init_mm.by_name() == mm.by_name() == app.extensions['mediamanager']['media']
 
+
 @pytest.mark.parametrize("app_manager", [('s3', 'file', {})], indirect=True)
 class TestS3FileManager:
 

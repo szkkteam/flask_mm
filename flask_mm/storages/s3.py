@@ -3,10 +3,11 @@
 
 # Common Python library imports
 import errno
-import hashlib
+from contextlib import contextmanager
 import os
+import mimetypes
 import io
-import shutil
+import zipfile
 from datetime import datetime
 
 # Pip package imports
@@ -29,7 +30,7 @@ from .. import files
 
 class S3Storage(BaseStorage):
 
-    def __init__(self, bucket_name, region, aws_access_key_id, aws_secret_access_key, *args, **kwargs):
+    def __init__(self, bucket_name, aws_region, aws_access_key, aws_secret_access_key, *args, **kwargs):
         super(S3Storage, self).__init__(*args, **kwargs)
 
         # Optional parameters
@@ -41,14 +42,14 @@ class S3Storage(BaseStorage):
                              'using pip install boto')
 
         connection = s3.connect_to_region(
-            region,
-            aws_access_key_id=aws_access_key_id,
+            aws_region,
+            aws_access_key_id=aws_access_key,
             aws_secret_access_key=aws_secret_access_key,
         )
         # TODO: Get config if can create bucket, create if can
         self._bucket = connection.get_bucket(bucket_name)
         self.separator = '/'
-        self.base_path = root
+        self.base_path = kwargs.get('root')
 
     @cached_property
     def bucket(self):
@@ -58,9 +59,9 @@ class S3Storage(BaseStorage):
     def root(self):
         return ''
 
-    def _generate_key(self, filename):
-        if self.base_dir:
-            filename = '%s/%s' % (self.base_dir, filename)
+    def _generate_key(self, filename, headers=None):
+        if self.base_path:
+            filename = '%s/%s' % (self.base_path, filename)
 
         k = self.bucket.new_key(filename)
         if not headers or 'Content-Type' not in headers:
@@ -93,6 +94,7 @@ class S3Storage(BaseStorage):
         key = Key(self.bucket, filename)
         key.set_contents_from_string('')
 
+    @contextmanager
     def open(self, filename, mode='r', encoding='utf8'):
         full_filename = self.path(filename)
         if mode == 'w':
@@ -104,8 +106,8 @@ class S3Storage(BaseStorage):
         else:
             k = self.bucket.get_key(full_filename)
             if not k:
-                raise FilenotFoundError('File does not exist: {0}'.format(filename))
-            return io.BytesIO(key.read())
+                raise FileNotFoundError('File does not exist: {0}'.format(filename))
+            return io.BytesIO(k.read())
 
     def read(self, filename):
         filename = self.path(filename)
@@ -135,6 +137,22 @@ class S3Storage(BaseStorage):
                 key.set_contents_from_file(out)
         return filename
 
+    def archive_files(self, out_filename, filenames, *args, **kwargs):
+        if not isinstance(filenames, (tuple, list)):
+            filenames = [filenames]
+
+        zf = zipfile.ZipFile(io.BytesIO(), 'w', zipfile.ZIP_DEFLATED)
+        try:
+            for filename in filenames:
+                zf.write(self.read(filename))
+            self.write(out_filename, zf.read())
+        except Exception as e:
+            print(e)
+        finally:
+            zf.close()
+
+        return out_filename
+
     def copy(self, filename, target):
         # TODO: Implement copy
         raise NotImplementedError('Copy operation is not implemented')
@@ -158,7 +176,7 @@ class S3Storage(BaseStorage):
         key = self.bucket.get_key(self.path(filename))
         if key is None:
             raise ValueError()
-        return redirect(key.generate_url(3600))
+        return key.generate_url(3600)
 
     def get_metadata(self, filename):
         '''Fetch all available metadata'''

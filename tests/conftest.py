@@ -31,6 +31,13 @@ TEST_CONFIGS = {
     'image': {
         'MANAGER': 'image',
         'THUMBNAIL_SIZE': (100,100, False)
+    },
+    's3': {
+        'STORAGE': 's3',
+        'AWS_ACCESS_KEY': os.environ.get('AWS_ACCESS_KEY_ID'),
+        'AWS_SECRET_ACCESS_KEY': os.environ.get('AWS_SECRET_ACCESS_KEY'),
+        'AWS_REGION': os.environ.get('AWS_REGION'),
+        'BUCKET_NAME': 'fairy-light',
     }
 }
 

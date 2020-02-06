@@ -82,22 +82,6 @@ class LocalStorage(BaseStorage):
         with self.open(filename, 'wb') as f:
             return f.write(self.as_binary(content))
 
-    def archive_files(self, out_filename, filenames, *args, **kwargs):
-        if not isinstance(filenames, (tuple, list)):
-            filenames = [filenames]
-
-        zf = zipfile.ZipFile(io.BytesIO(), 'w', zipfile.ZIP_DEFLATED)
-        try:
-            for filename in filenames:
-                zf.write(self.read(filename))
-            self.write(out_filename, zf.read())
-        except Exception as e:
-            print(e)
-        finally:
-            zf.close()
-
-        return out_filename
-
     def delete(self, filename):
         dest = self.path(filename)
         if os.path.isdir(dest):
