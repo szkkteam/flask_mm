@@ -20,7 +20,15 @@ class BaseStorage(object):
     DEFAULT_MIME = 'application/octet-stream'
 
     def __init__(self, *args, **kwargs):
-        pass
+        self.public_view = kwargs.get('public_view', True)
+
+    @property
+    def has_url(self):
+        return False
+
+    @property
+    def base_url(self):
+        return None
 
     def exists(self, filename):
         raise NotImplementedError('Existance checking is not implemented')

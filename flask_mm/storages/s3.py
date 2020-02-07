@@ -11,9 +11,10 @@ import zipfile
 import codecs
 
 # Pip package imports
+import PIL
 import boto3
 from botocore.exceptions import ClientError
-from flask import send_from_directory
+from flask import abort
 
 from werkzeug import cached_property
 from werkzeug.datastructures import FileStorage
@@ -25,12 +26,16 @@ from .. import files
 
 class S3Storage(BaseStorage):
 
+    BASE_URL = "{bucket_name}.s3.{region}.amazonaws.com/"
+
     def __init__(self, bucket_name, aws_region, aws_access_key, aws_secret_access_key, *args, **kwargs):
         super(S3Storage, self).__init__(*args, **kwargs)
 
         self.session = boto3.session.Session()
         self.s3config = boto3.session.Config(signature_version='s3v4')
         self.bucket_name = bucket_name
+        self.region = aws_region
+        self.object_acl = kwargs.get('object_acl', 'public-read')
         # Optional parameters
         self.base_path = kwargs.get('root')
         self.policy = kwargs.get('policy')
@@ -54,6 +59,15 @@ class S3Storage(BaseStorage):
     @cached_property
     def root(self):
         return ''
+
+    @property
+    def has_url(self):
+        return True
+
+    @property
+    def base_url(self):
+        return S3Storage.BASE_URL.format(bucket_name=self.bucket_name, region=self.region)
+
 
     def _generate_key(self, filename, headers=None):
         if self.base_path:
@@ -81,6 +95,7 @@ class S3Storage(BaseStorage):
 
     def path(self, filename):
         '''Return the full path for a given filename in the storage'''
+        print("Base path: ", self.base_path)
         if self.base_path is None:
             return filename
         if callable(self.base_path):
@@ -110,7 +125,11 @@ class S3Storage(BaseStorage):
         return obj['Body'].read()
 
     def write(self, filename, content):
-        return self.bucket.put_object(Key=self.path(filename), Body=self.as_binary(content))
+        return self.bucket.put_object(
+            Key=self.path(filename),
+            Body=self.as_binary(content),
+            ACL = self.object_acl,
+        )
 
     def delete(self, filename):
         for obj in self.bucket.objects.filter(Prefix=self.path(filename)):
@@ -123,22 +142,36 @@ class S3Storage(BaseStorage):
             self.bucket.put_object(
                 Body=file_or_wfs,
                 Key=self.path(filename),
-                ContentType=file_or_wfs.content_type)
+                ACL=self.object_acl,
+                #ContentType=file_or_wfs.content_type # TODO: How to handle content_type == None
+            )
+        elif isinstance(file_or_wfs, io.BytesIO):
+            file_or_wfs.seek(0)
+            self.bucket.put_object(
+                Body=file_or_wfs,
+                Key=self.path(filename),
+                ACL=self.object_acl,
+                # ContentType=?? TODO: How to get the content type?
+            )
+        elif isinstance(file_or_wfs, PIL.Image.Image):
+            in_mem_file = io.BytesIO()
+            file_or_wfs.save(in_mem_file, **kwargs)
+            # Rewind
+            in_mem_file.seek(0)
+            self.bucket.put_object(
+                Body=in_mem_file,
+                Key=self.path(filename),
+                ACL=self.object_acl,
+                # ContentType=?? TODO: How to get the content type?
+            )
         else:
-            if isinstance(file_or_wfs, io.BytesIO):
-                file_or_wfs.seek(0)
+            with open(filename, 'rb') as out:
                 self.bucket.put_object(
-                    Body=file_or_wfs,
+                    Body=self.as_binary(out),
                     Key=self.path(filename),
+                    ACL=self.object_acl,
                     # ContentType=?? TODO: How to get the content type?
                 )
-            else:
-                with open(filename, 'wb') as out:
-                    self.bucket.put_object(
-                        Body=self.as_binary(out),
-                        Key=self.path(filename),
-                        # ContentType=?? TODO: How to get the content type?
-                    )
         return filename
 
     def archive_files(self, out_filename, filenames, *args, **kwargs):
@@ -155,7 +188,7 @@ class S3Storage(BaseStorage):
             except Exception as e:
                 print("Error occured: ", e)
         # Write the zipfile content to s3
-        self.write(out_filename, zf.getvalue())
+        self.write(out_filename, mem_zip.getvalue())
         return out_filename
 
     def copy(self, filename, target):
@@ -173,16 +206,11 @@ class S3Storage(BaseStorage):
         for f in self.bucket.objects.all():
             yield f.key
 
-    def path(self, filename):
-        '''Return the full path for a given filename in the storage'''
-        if self.base_path:
-            return self.base_path + self.separator + filename
-        return filename
-
     def serve(self, filename):
         '''Serve files for storages with direct file access'''
+        """
         try:
-            response = self.s3.generate_presigned_url('get_object',
+            response = self.session.client('s3').generate_presigned_url('get_object',
                                            Params={'Bucket': self.bucket_name,
                                                    'Key': self.path(filename)},
                                            ExpiresIn=3600)
@@ -190,7 +218,17 @@ class S3Storage(BaseStorage):
             # TODO: Logging
             print("Error: ", err)
             return None
+        print("Response: ", response)
         return response
+        return redirect(response)
+        """
+        if not self.public_view:
+            abort(400)
+        #TODO: This should be like: Read - Then transfer
+        url = "https://{bucket_name}.s3.{region}.amazonaws.com/{filename}".format(bucket_name=self.bucket_name, region=self.region, filename=self.path(filename))
+        print("Response: ", url)
+        return url
+
 
     def get_metadata(self, filename):
         '''Fetch all availabe metadata'''

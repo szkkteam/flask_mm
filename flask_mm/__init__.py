@@ -64,6 +64,7 @@ class MediaManager(object):
         'MANAGER',
         'STORAGE',
         'EXTENSIONS',
+        'PUBLIC_VIEW'
         # Image Manager related configuration values
         'MAX_SIZE',
         'THUMBNAIL_SIZE',
@@ -79,6 +80,7 @@ class MediaManager(object):
         'AWS_SECRET_ACCESS_KEY',
         'AWS_REGION',
         'BUCKET_NAME',
+        'OBJECT_ACL'
     ]
 
     key = 'mediamanager'
@@ -136,7 +138,8 @@ class MediaManager(object):
             'PREFIX': self.default_prefix,
             'EXTENSIONS': DEFAULTS,
             'MANAGER': MediaManager.default_manager,
-            'STORAGE': MediaManager.default_storage
+            'STORAGE': MediaManager.default_storage,
+            'PUBLIC_VIEW': True
         }
         if mm is None:
             mm = {}

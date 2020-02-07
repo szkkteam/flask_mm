@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 
 # Pip package imports
-from flask import send_from_directory
+from flask import send_from_directory, abort
 
 from werkzeug import cached_property
 from werkzeug.datastructures import FileStorage
@@ -127,6 +127,8 @@ class LocalStorage(BaseStorage):
         return os.path.join(self.base_path, filename)
 
     def serve(self, filename):
+        if not self.public_view:
+            abort(400)
         '''Serve files for storages with direct file access'''
         return send_from_directory(self.root, filename)
 

@@ -33,15 +33,15 @@ class TestS3FileManager:
         st = mm.by_name()
         assert st.storage.root == os.path.abspath(os.path.join(os.path.dirname(__file__),'test'))
     """
-    def test_exists(self, app_manager):
-        st = mm.by_name()
-        assert st.exists('file.test')
-        assert not st.exists('notexists')
-
     def test_open_write_new_file(self, app_manager):
         st = mm.by_name()
         with st.open('file.test', 'w') as f:
             f.write('')
+
+    def test_exists(self, app_manager):
+        st = mm.by_name()
+        assert st.exists('file.test')
+        assert not st.exists('notexists')
 
     def test_file_open(self, app_manager):
         st = mm.by_name()

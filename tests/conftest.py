@@ -38,6 +38,7 @@ TEST_CONFIGS = {
         'AWS_SECRET_ACCESS_KEY': os.environ.get('AWS_SECRET_ACCESS_KEY'),
         'AWS_REGION': os.environ.get('AWS_REGION'),
         'BUCKET_NAME': 'fairy-light',
+        'ROOT': 'test',
     }
 }
 

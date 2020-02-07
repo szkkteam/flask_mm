@@ -28,7 +28,6 @@ class BaseManager(object):
         # Optional parameters
         self.allowed_extensions = kwargs.get('extensions', None)
         self.namegen = kwargs.get('name_gen', UuidNameGen)
-        self._url = kwargs.get('url', None)
 
     def _clean_url(self, url):
         if not url.startswith('http://') and not url.startswith('https://'):
@@ -37,23 +36,14 @@ class BaseManager(object):
             url += '/'
         return url
 
-    @property
-    def has_url(self):
-        return bool(self._url)
-
-    @property
-    def base_url(self):
-        if self.has_url:
-            return self._clean_url(self._url)
-        return url_for('mm.get_file', mm=self.name, filename='', _external=True)
-
     def url(self, filename, external=False):
         if isinstance(filename, FileStorage):
             filename = filename.filename
         if filename.startswith('/'):
             filename = filename[1:]
-        if self.has_url:
-            return urljoin(self.base_url, filename)
+        if self.storage.has_url:
+            # TODO: Clean url or not?
+            return urljoin(self._clean_url(self.storage.base_url), self.storage.path(filename))
         else:
             return url_for('mm.get_file', mm=self.name, filename=filename, _external=external)
 
@@ -112,7 +102,7 @@ class BaseManager(object):
         return filename
 
     def list_files(self):
-        return self.storage.list_files()
+        return self.storage.list_file()
 
     def metadata(self, filename):
         metadata = self.storage.metadata(filename)
