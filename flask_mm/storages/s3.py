@@ -30,6 +30,7 @@ class S3Storage(BaseStorage):
 
         self.session = boto3.session.Session()
         self.s3config = boto3.session.Config(signature_version='s3v4')
+        self.bucket_name = bucket_name
         # Optional parameters
         self.base_path = kwargs.get('root')
         self.policy = kwargs.get('policy')
@@ -42,14 +43,13 @@ class S3Storage(BaseStorage):
                                         aws_secret_access_key=aws_secret_access_key)
 
         # TODO: Get config if can create bucket, create if can
-        self.bucket = self.s3.Bucket(bucket_name)
+        self.bucket = self.s3.Bucket(self.bucket_name)
         try:
             self.bucket.create()
         except (self.s3.meta.client.exceptions.BucketAlreadyOwnedByYou, ClientError):
             pass
 
         self.separator = '/'
-        self.base_path = kwargs.get('root')
 
     @cached_property
     def root(self):
@@ -79,16 +79,24 @@ class S3Storage(BaseStorage):
         search = self._get_bucket_list_prefix(path)
         return {key.name for key in self.bucket.list(search, self.separator)}
 
+    def path(self, filename):
+        '''Return the full path for a given filename in the storage'''
+        if self.base_path is None:
+            return filename
+        if callable(self.base_path):
+            return self.base_path() + self.separator + filename
+        return self.base_path + self.separator + filename
+
     def exists(self, filename):
         try:
-            self.bucket.Object(filename).load()
+            self.bucket.Object(self.path(filename)).load()
         except ClientError:
             return False
         return True
 
     @contextmanager
     def open(self, filename, mode='r', encoding='utf8'):
-        obj = self.bucket.Object(filename)
+        obj = self.bucket.Object(self.path(filename))
         if 'r' in mode:
             f = obj.get()['Body']
             yield f if 'b' in mode else codecs.getreader(encoding)(f)
@@ -98,36 +106,37 @@ class S3Storage(BaseStorage):
             obj.put(Body=f.getvalue())
 
     def read(self, filename):
-        obj = self.bucket.Object(filename).get()
+        obj = self.bucket.Object(self.path(filename)).get()
         return obj['Body'].read()
 
     def write(self, filename, content):
-        return self.bucket.put_object(Key=filename, Body=self.as_binary(content))
+        return self.bucket.put_object(Key=self.path(filename), Body=self.as_binary(content))
 
     def delete(self, filename):
-        for obj in self.bucket.objects.filter(Prefix=filename):
+        for obj in self.bucket.objects.filter(Prefix=self.path(filename)):
             obj.delete()
 
     def save(self, file_or_wfs, filename, **kwargs):
         if isinstance(file_or_wfs, FileStorage):
+            # Get the filename
+            filename = filename if filename else file_or_wfs.filename
             self.bucket.put_object(
                 Body=file_or_wfs,
-                Key=filename if filename else file_or_wfs.filename,
-                # ContentType=?? TODO: How to get the content type?
-            )
+                Key=self.path(filename),
+                ContentType=file_or_wfs.content_type)
         else:
             if isinstance(file_or_wfs, io.BytesIO):
                 file_or_wfs.seek(0)
                 self.bucket.put_object(
                     Body=file_or_wfs,
-                    Key=filename,
+                    Key=self.path(filename),
                     # ContentType=?? TODO: How to get the content type?
                 )
             else:
                 with open(filename, 'wb') as out:
                     self.bucket.put_object(
                         Body=self.as_binary(out),
-                        Key=filename,
+                        Key=self.path(filename),
                         # ContentType=?? TODO: How to get the content type?
                     )
         return filename
@@ -135,26 +144,24 @@ class S3Storage(BaseStorage):
     def archive_files(self, out_filename, filenames, *args, **kwargs):
         if not isinstance(filenames, (tuple, list)):
             filenames = [filenames]
-
-        zf = zipfile.ZipFile(io.BytesIO(), 'w', zipfile.ZIP_DEFLATED)
-        try:
-            for filename in filenames:
-                print("Filename: ", filename)
-                d = self.read(filename)
-                print("Data: ", d)
-                zf.writestr(filename, d)
-            self.write(out_filename, zf)
-        except Exception as e:
-            print("Error occured: ", e)
-        finally:
-            zf.close()
-
+        mem_zip = io.BytesIO()
+        with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+            try:
+                for filename in filenames:
+                    print("Filename: ", filename)
+                    d = self.read(filename)
+                    print("Data: ", d)
+                    zf.writestr(filename, d)
+            except Exception as e:
+                print("Error occured: ", e)
+        # Write the zipfile content to s3
+        self.write(out_filename, zf.getvalue())
         return out_filename
 
     def copy(self, filename, target):
         src = {
             'Bucket': self.bucket.name,
-            'Key': filename,
+            'Key': self.path(filename),
         }
         self.bucket.copy(src, target)
 
@@ -174,14 +181,20 @@ class S3Storage(BaseStorage):
 
     def serve(self, filename):
         '''Serve files for storages with direct file access'''
-        key = self.bucket.get_key(self.path(filename))
-        if key is None:
-            raise ValueError()
-        return key.generate_url(3600)
+        try:
+            response = self.s3.generate_presigned_url('get_object',
+                                           Params={'Bucket': self.bucket_name,
+                                                   'Key': self.path(filename)},
+                                           ExpiresIn=3600)
+        except ClientError as err:
+            # TODO: Logging
+            print("Error: ", err)
+            return None
+        return response
 
     def get_metadata(self, filename):
         '''Fetch all availabe metadata'''
-        obj = self.bucket.Object(filename)
+        obj = self.bucket.Object(self.path(filename))
         checksum = 'md5:{0}'.format(obj.e_tag[1:-1])
         mime = obj.content_type.split(';', 1)[0] if obj.content_type else None
         return {

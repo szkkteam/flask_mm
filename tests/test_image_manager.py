@@ -77,8 +77,8 @@ class TestLocalImageManagerThumbnailForced:
 
         st.delete(filename)
 
-@pytest.mark.parametrize("app_manager", [('local', 'image', {})], indirect=True)
-class TestLocalImageManager:
+@pytest.mark.parametrize("app_manager", [('local', 'image', {}), ('s3', 'image', {})], indirect=True)
+class TestImageManager:
 
     @pytest.mark.parametrize("image", [("tests/flask.jpg"), ("tests/flask.png")])
     def test_save_from_file(self, app_manager, image, utils):

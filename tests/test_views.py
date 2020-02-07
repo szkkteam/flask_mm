@@ -15,7 +15,7 @@ import pytest
 # Internal package imports
 import flask_mm as mm
 
-@pytest.mark.parametrize("app_manager", [('local', 'image', {})], indirect=True)
+@pytest.mark.parametrize("app_manager", [('local', 'image', {}), ('s3', 'image', {})], indirect=True)
 class TestUrls:
 
     def test_url(self, app_manager):
