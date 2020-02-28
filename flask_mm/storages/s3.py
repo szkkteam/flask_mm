@@ -95,7 +95,6 @@ class S3Storage(BaseStorage):
 
     def path(self, filename):
         '''Return the full path for a given filename in the storage'''
-        print("Base path: ", self.base_path)
         if self.base_path is None:
             return filename
         if callable(self.base_path):
@@ -181,9 +180,7 @@ class S3Storage(BaseStorage):
         with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
             try:
                 for filename in filenames:
-                    print("Filename: ", filename)
                     d = self.read(filename)
-                    print("Data: ", d)
                     zf.writestr(filename, d)
             except Exception as e:
                 print("Error occured: ", e)
@@ -226,7 +223,6 @@ class S3Storage(BaseStorage):
             abort(400)
         #TODO: This should be like: Read - Then transfer
         url = "https://{bucket_name}.s3.{region}.amazonaws.com/{filename}".format(bucket_name=self.bucket_name, region=self.region, filename=self.path(filename))
-        print("Response: ", url)
         return url
 
 

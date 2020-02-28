@@ -86,7 +86,6 @@ class ImageManager(BaseManager):
 
         # Calcualte the save format for the image
         format_filename, format = self._get_save_format(filename, image)
-        print("Format: ", format)
 
         # If generate filename is requested, use the given name generator
         if generate_name:
