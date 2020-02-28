@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 import os
+import io
 
 # Pip package imports
 from flask import url_for
@@ -40,6 +41,13 @@ class TestLocalFileManager:
         st = mm.by_name()
         with st.open('file.test') as f:
             assert f.read() == ""
+
+    def test_file_open_as_binary(self, app_manager):
+        st = mm.by_name()
+        with st.open('file.test', mode='rb') as f:
+            byte_stream = io.BytesIO(f.read())
+        byte_stream.seek(0)
+        assert byte_stream.read() == b''
 
     def test_open_write_new_file(self, app_manager):
         st = mm.by_name()
@@ -145,6 +153,30 @@ class TestLocalFileManager:
         archive = st.archive_files(st.generate_name('compressed.zip'), [filename1, filename2])
 
         assert st.exists(archive)
+
+        st.delete(filename1)
+        st.delete(filename2)
+        st.delete(archive)
+
+    def test_compress_files_filestorage_read(self, app_manager, utils):
+        # Create archive
+        st = mm.by_name()
+
+        f1 = utils.filestorage('test.png', 'test')
+        f2 = utils.filestorage('test.png', 'test')
+
+        filename1 = st.save(f1, st.generate_name(f1))
+        filename2 = st.save(f2, st.generate_name(f2))
+
+        archive = st.archive_files(st.generate_name('compressed.zip'), [filename1, filename2])
+
+        assert st.exists(archive)
+
+        # Read back file
+        with st.open(archive, mode='rb') as f:
+            byte_stream = io.BytesIO(f.read())
+
+        byte_stream.seek(0)
 
         st.delete(filename1)
         st.delete(filename2)
